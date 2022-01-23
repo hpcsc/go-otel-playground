@@ -12,10 +12,7 @@ import (
 )
 
 func NewProvider(ctx context.Context, collectorAddr string) (*controller.Controller, error) {
-	metricClient := otlpmetricgrpc.NewClient(
-		otlpmetricgrpc.WithInsecure(),
-		otlpmetricgrpc.WithEndpoint(collectorAddr))
-	exporter, err := otlpmetric.New(ctx, metricClient)
+	exporter, err := newOTLPExporter(ctx, collectorAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metric exporter: %v", err)
 	}
@@ -30,4 +27,11 @@ func NewProvider(ctx context.Context, collectorAddr string) (*controller.Control
 	)
 
 	return pusher, nil
+}
+
+func newOTLPExporter(ctx context.Context, collectorAddr string) (*otlpmetric.Exporter, error) {
+	metricClient := otlpmetricgrpc.NewClient(
+		otlpmetricgrpc.WithInsecure(),
+		otlpmetricgrpc.WithEndpoint(collectorAddr))
+	return otlpmetric.New(ctx, metricClient)
 }

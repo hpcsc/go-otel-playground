@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -12,8 +13,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"time"
 )
 
 const tracerName = "github.com/hpcsc/go-otel-playground"
@@ -23,7 +22,7 @@ func StartSpan(ctx context.Context, name string) (context.Context, trace.Span) {
 }
 
 func NewProvider(ctx context.Context, collectorAddr string) (*sdk.TracerProvider, error) {
-	exporter, err := newOTLPExporter(collectorAddr, ctx)
+	exporter, err := newOTLPExporter(ctx, collectorAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace exporter: %v", err)
 	}
@@ -41,20 +40,15 @@ func NewProvider(ctx context.Context, collectorAddr string) (*sdk.TracerProvider
 	return provider, nil
 }
 
-func newOTLPExporter(collectorAddr string, ctx context.Context) (sdk.SpanExporter, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	conn, err := grpc.DialContext(ctx, fmt.Sprintf("dns:///%s", collectorAddr),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-		grpc.FailOnNonTempDialError(true),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
+func newOTLPExporter(ctx context.Context, collectorAddr string) (sdk.SpanExporter, error) {
+	traceClient := otlptracegrpc.NewClient(
+		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpoint(collectorAddr),
+		otlptracegrpc.WithDialOption(
+			grpc.WithBlock(),
+			grpc.FailOnNonTempDialError(true),
+		))
+	return otlptrace.New(ctx, traceClient)
 }
 
 func newConsoleExporter() (*stdouttrace.Exporter, error) {
