@@ -1,0 +1,42 @@
+project_name: go-otel-playground
+
+containers:
+  app:
+    build_directory: .
+    ports:
+      - "3333:3333"
+    environment:
+      COLLECTOR_ADDR: otel-collector:4317
+      PORT: 3333
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.30.0
+    ports:
+      - "16686:16686"
+
+  prometheus:
+    image: prom/prometheus:v2.32.1
+    volumes:
+      - ./configs/prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib-dev
+    command: --config=/etc/otel-collector/otel-collector.yaml
+    volumes:
+      - ./configs/otel-collector.yaml:/etc/otel-collector/otel-collector.yaml
+    ports:
+      - "1888:1888"   # pprof extension
+      - "13133:13133" # health_check extension
+      - "4317:4317"        # OTLP gRPC receiver
+      - "55670:55679" # zpages extension
+
+tasks:
+  run:
+    dependencies:
+      - jaeger
+      - prometheus
+      - otel-collector
+    run:
+      container: app
