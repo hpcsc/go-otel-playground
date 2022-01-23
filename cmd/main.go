@@ -32,8 +32,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// set global tracer provider & text propagators
+	// set global tracer provider
 	otel.SetTracerProvider(traceProvider)
+	// set text propagators:
+	// - propagation.TraceContext: W3C Trace Context format
+	// - propagation.Baggage: W3C Baggage format
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
 	metricProvider, err := internalMetric.NewProvider(ctx, c.CollectorAddr)
